@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Quiz Scoreboard - Projector</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #090d16;
+            color: #f8fafc;
+            margin: 0;
+            padding: 28px;
+        }
+        .topbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 16px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        input {
+            padding: 11px 14px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #1e293b;
+            color: white;
+            width: 140px;
+        }
+        button {
+            background: #10b981;
+            color: #052e16;
+            border: none;
+            padding: 12px 22px;
+            font-size: 17px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        button:hover { background: #34d399; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1.25fr;
+            gap: 26px;
+            margin-top: 24px;
+        }
+        @media (max-width: 900px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+        .panel {
+            background: #1e293b;
+            padding: 24px;
+            border-radius: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+            font-size: 18px;
+        }
+        th, td {
+            padding: 13px 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        tbody tr:first-child td {
+            color: #facc15;
+            font-weight: 700;
+            font-size: 20px;
+        }
+        .time-pill {
+            background: #0f172a;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #93c5fd;
+        }
+        #err-msg {
+            color: #fb7185;
+            margin-top: 8px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>🏆 Live Quiz Arena</h1>
+        <div class="controls">
+            <input type="password" id="host-pin" placeholder="Host PIN">
+            <button onclick="nextQuestion()">Next Question ➔</button>
+        </div>
+    </div>
+    <div id="err-msg"></div>
+
+    <div class="grid">
+        <div class="panel">
+            <h2 id="q-title" style="color:#38bdf8; margin-top:0;">Waiting to Start...</h2>
+            <p id="q-body" style="font-size:24px; line-height:1.5;">
+                വിദ്യാർത്ഥികൾ പിസികളിൽ ജോയിൻ ചെയ്ത ശേഷം Host PIN നൽകി "Next Question" ക്ലിക്ക് ചെയ്യുക.
+            </p>
+            <div id="proj-timer" style="font-size:30px; font-weight:700; color:#f43f5e; margin-top:16px;"></div>
+        </div>
+
+        <div class="panel">
+            <h2 style="margin-top:0;">📊 Live Leaderboard</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Participant</th>
+                        <th>Score</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let projInterval = null;
+
+        function nextQuestion() {
+            const pin = document.getElementById('host-pin').value.trim();
+            document.getElementById('err-msg').innerText = "";
+            socket.emit('next_question', { pin: pin });
+        }
+
+        socket.on('host_error', (data) => {
+            document.getElementById('err-msg').innerText = data.message;
+        });
+
+        socket.on('new_question', (data) => {
+            clearInterval(projInterval);
+            document.getElementById('q-title').innerText = `Question ${data.index} of ${data.total}`;
+            document.getElementById('q-body').innerText = data.question;
+
+            let t = data.time_limit;
+            const timerEl = document.getElementById('proj-timer');
+            timerEl.innerText = `⏱️ ${t}s`;
+
+            projInterval = setInterval(() => {
+                t--;
+                if (t <= 0) {
+                    clearInterval(projInterval);
+                    timerEl.innerText = "⏱️ 0s";
+                } else {
+                    timerEl.innerText = `⏱️ ${t}s`;
+                }
+            }, 1000);
+        });
+
+        socket.on('update_leaderboard', (players) => {
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = "";
+            players.forEach((p, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${i + 1}</td>
+                    <td>${p.name}</td>
+                    <td><strong>${p.score}</strong></td>
+                    <td><span class="time-pill">${p.last_time || '-'}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+
+        socket.on('quiz_over', () => {
+            clearInterval(projInterval);
+            document.getElementById('q-title').innerText = "🎉 Quiz Finished!";
+            document.getElementById('q-body').innerText = "അന്തിമ സ്കോർ ബോർഡ് വലതുവശത്ത് കാണാം.";
+            document.getElementById('proj-timer').innerText = "";
+        });
+    </script>
+</body>
+</html>
