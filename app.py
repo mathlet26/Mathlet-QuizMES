@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 import os
 import time
 from flask import Flask, render_template
@@ -12,7 +9,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'free_college_quiz_secre
 # Host കൺട്രോൾ ചെയ്യാനുള്ള PIN (നിങ്ങൾക്ക് മാറ്റാം)
 HOST_PIN = os.environ.get('HOST_PIN', '4321')
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # ക്വിസ് ചോദ്യങ്ങൾ ഇവിടെ ചേർക്കുക
 QUESTIONS = [
